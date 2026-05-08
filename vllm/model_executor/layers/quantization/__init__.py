@@ -16,6 +16,7 @@ QuantizationMethods = Literal[
     "fp_quant",
     "modelopt",
     "modelopt_fp4",
+    "modelopt_fp4_w4a16",
     "modelopt_mxfp8",
     "modelopt_mixed",
     "gguf",
@@ -136,6 +137,7 @@ def get_quantization_config(quantization: str) -> type[QuantizationConfig]:
         ModelOptMixedPrecisionConfig,
         ModelOptMxFp8Config,
         ModelOptNvFp4Config,
+        ModelOptNvFp4W4A16Config,
     )
     from .moe_wna16 import MoeWNA16Config
     from .mxfp4 import GptOssMxfp4Config, Mxfp4Config
@@ -149,6 +151,7 @@ def get_quantization_config(quantization: str) -> type[QuantizationConfig]:
         "fp_quant": FPQuantConfig,
         "modelopt": ModelOptFp8Config,
         "modelopt_fp4": ModelOptNvFp4Config,
+        "modelopt_fp4_w4a16": ModelOptNvFp4W4A16Config,
         "modelopt_mxfp8": ModelOptMxFp8Config,
         "modelopt_mixed": ModelOptMixedPrecisionConfig,
         "gguf": GGUFConfig,

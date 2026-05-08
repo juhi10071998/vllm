@@ -965,6 +965,12 @@ class ModelConfig:
                 "inc",
                 "moe_wna16",
                 "modelopt",
+                # modelopt_fp4_w4a16 must be probed BEFORE modelopt_fp4:
+                # the parent Config's override_quantization_method claims
+                # any NVFP4 ckpt as "modelopt_fp4" regardless of user_quant.
+                # The subclass's override only claims when the user
+                # explicitly passes --quantization=modelopt_fp4_w4a16.
+                "modelopt_fp4_w4a16",
                 "modelopt_fp4",
                 "modelopt_mxfp8",
                 "modelopt_mixed",
