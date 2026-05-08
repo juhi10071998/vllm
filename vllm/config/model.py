@@ -21,7 +21,10 @@ from vllm.config.multimodal import (
     MultiModalConfig,
 )
 from vllm.config.pooler import PoolerConfig
-from vllm.config.quantization import OnlineQuantizationConfigArgs
+from vllm.config.quantization import (
+    OnlineQuantizationConfigArgs,
+    QuantizationActivationDType,
+)
 from vllm.config.scheduler import RunnerType
 from vllm.config.utils import config, getattr_iter
 from vllm.logger import init_logger
@@ -210,6 +213,14 @@ class ModelConfig:
     """Arguments for online quantization.
     Auto-created when `quantization` equals to one of the string values of
     the `OnlineQuantScheme` enum."""
+    quantization_activation_dtype: QuantizationActivationDType = "auto"
+    """Override the activation dtype that the quantization config would
+    otherwise select. If `"auto"`, behavior is unchanged. Currently
+    honored by ModelOpt NVFP4 (`bfloat16`/`float16` routes through the
+    W4A16 LinearMethod regardless of the on-disk `quant_algo`). Configs
+    that do not recognize the value will ignore it (silent no-op,
+    mirroring how `--kv-cache-dtype` behaves on a model that can't honor
+    a given value)."""
     allow_deprecated_quantization: bool = False
     """Whether to allow deprecated quantization methods."""
     enforce_eager: bool = False

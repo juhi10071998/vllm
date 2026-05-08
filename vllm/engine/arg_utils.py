@@ -118,7 +118,10 @@ from vllm.v1.sample.logits_processor import LogitsProcessor
 from vllm.version import __version__ as VLLM_VERSION
 
 if TYPE_CHECKING:
-    from vllm.config.quantization import OnlineQuantizationConfigArgs
+    from vllm.config.quantization import (
+        OnlineQuantizationConfigArgs,
+        QuantizationActivationDType,
+    )
     from vllm.model_executor.layers.quantization import QuantizationMethods
     from vllm.model_executor.model_loader import LoadFormats
     from vllm.usage.usage_lib import UsageContext
@@ -517,6 +520,9 @@ class EngineArgs:
     tokenizer_revision: str | None = ModelConfig.tokenizer_revision
     quantization: QuantizationMethods | str | None = ModelConfig.quantization
     quantization_config: "dict[str, Any] | OnlineQuantizationConfigArgs | None" = None
+    quantization_activation_dtype: "QuantizationActivationDType" = (
+        ModelConfig.quantization_activation_dtype
+    )
     allow_deprecated_quantization: bool = ModelConfig.allow_deprecated_quantization
     enforce_eager: bool = ModelConfig.enforce_eager
     disable_custom_all_reduce: bool = ParallelConfig.disable_custom_all_reduce
@@ -774,6 +780,10 @@ class EngineArgs:
         )
         model_group.add_argument("--max-model-len", **model_kwargs["max_model_len"])
         model_group.add_argument("--quantization", "-q", **model_kwargs["quantization"])
+        model_group.add_argument(
+            "--quantization-activation-dtype",
+            **model_kwargs["quantization_activation_dtype"],
+        )
         model_group.add_argument(
             "--allow-deprecated-quantization",
             **model_kwargs["allow_deprecated_quantization"],
@@ -1519,6 +1529,7 @@ class EngineArgs:
             max_model_len=self.max_model_len,
             quantization=self.quantization,
             quantization_config=self.quantization_config,
+            quantization_activation_dtype=self.quantization_activation_dtype,
             allow_deprecated_quantization=self.allow_deprecated_quantization,
             enforce_eager=self.enforce_eager,
             enable_return_routed_experts=self.enable_return_routed_experts,

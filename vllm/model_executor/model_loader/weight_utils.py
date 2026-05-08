@@ -313,6 +313,16 @@ def get_quant_config(
         ):
             pass  # fall through to file-based loading below
         else:
+            # Engine-level activation-dtype override (Option 3): thread the
+            # runtime CLI value into from_config via a private dict key.
+            # ModelOptQuantConfigBase.from_config pops it before parsing.
+            # Mirrors the existing pattern of injecting model-derived data
+            # into hf_quant_config (see CT total_num_heads above).
+            act_dtype = getattr(
+                model_config, "quantization_activation_dtype", "auto"
+            )
+            if act_dtype != "auto":
+                hf_quant_config["__activation_dtype_override__"] = act_dtype
             return quant_cls.from_config(hf_quant_config)
 
     # if hf_quant_config is None, we will try to get config from

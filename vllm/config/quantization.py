@@ -2,11 +2,31 @@
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, field_validator
 
 from vllm.config.utils import config
+
+QuantizationActivationDType = Literal["auto", "bfloat16", "float16"]
+"""Override the activation dtype that the quantization config would
+otherwise pick.
+
+- ``"auto"``: behavior unchanged; the quantization config follows the
+  on-disk ``quant_algo``.
+- ``"bfloat16"`` / ``"float16"``: honored by ModelOpt NVFP4 (forces
+  routing through ``ModelOptNvFp4W4A16LinearMethod`` regardless of the
+  on-disk ``quant_algo``). Quant configs that do not honor a particular
+  value should ignore it (silent no-op, mirroring how
+  ``--kv-cache-dtype`` behaves on a model that can't honor a given
+  value).
+
+Mirrors ``CacheConfig.cache_dtype`` in shape: an engine-level dtype
+override, orthogonal to ``--quantization``. The consumption path
+differs from ``--kv-cache-dtype`` (the QuantizationConfig itself reads
+the field rather than a separate cache subsystem) — see
+``logs_and_results/nvfp4_as_w4a16_options.md`` for the full discussion.
+"""
 
 
 class OnlineQuantScheme(Enum):

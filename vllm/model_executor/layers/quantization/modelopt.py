@@ -277,6 +277,15 @@ class ModelOptQuantConfigBase(QuantizationConfig):
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "ModelOptQuantConfigBase":
+        # Engine-level activation-dtype override (Option 3): a private key
+        # injected by weight_utils.get_quant_config when the user passes
+        # --quantization-activation-dtype. Pop it here so the rest of the
+        # parsing doesn't see (or trip on) a non-on-disk field, and thread
+        # it down to _from_config / __init__.
+        activation_dtype_override = config.pop(
+            "__activation_dtype_override__", "auto"
+        )
+
         # Handle both ModelOpt format and compressed-tensors style format
         if "quantization" in config:
             # Traditional ModelOpt format:
@@ -361,6 +370,7 @@ class ModelOptQuantConfigBase(QuantizationConfig):
             exclude_modules=exclude_modules,
             group_size=group_size,
             original_config=config,
+            activation_dtype_override=activation_dtype_override,
         )
 
 
@@ -1013,6 +1023,7 @@ class ModelOptNvFp4Config(ModelOptQuantConfigBase):
         kv_cache_quant_algo: str | None = None,
         exclude_modules: list[str] | None = None,
         group_size: int = 16,
+        activation_dtype_override: str = "auto",
     ) -> None:
         if exclude_modules is None:
             exclude_modules = []
@@ -1030,10 +1041,30 @@ class ModelOptNvFp4Config(ModelOptQuantConfigBase):
             self.group_size = group_size
             self.kv_cache_quant_algo = kv_cache_quant_algo
 
-        # Select LinearMethod implementation based on quant_algo (FP8 pattern).
+        # Engine-level activation-dtype override (orthogonal to --quantization).
+        # The runtime CLI value flows in here via a private dict key
+        # ("__activation_dtype_override__") that get_quant_config injects on
+        # hf_quant_config and ModelOptQuantConfigBase.from_config pops out
+        # before parsing. Threading via the existing dict avoids a
+        # base_config.from_config signature change. See
+        # logs_and_results/nvfp4_as_w4a16_options.md "Way 1" for the design.
+        self.activation_dtype_override = activation_dtype_override
+
+        # LinearMethod selection: engine-level override > on-disk per-algo.
         # NVFP4         -> W4A4: cutlass NVFP4 GEMM with input quantization
         # W4A16_NVFP4   -> W4A16: FP4 Marlin GEMM with bf16/fp16 activations
-        if quant_method == "NVFP4":
+        if self.activation_dtype_override in ("bfloat16", "float16"):
+            self.LinearMethodCls = ModelOptNvFp4W4A16LinearMethod
+            if quant_method != "W4A16_NVFP4":
+                logger.info(
+                    "ModelOpt NVFP4 W4A16 override active "
+                    "(quantization_activation_dtype=%s): loading a %s "
+                    "checkpoint via the W4A16 LinearMethod. Per-tensor "
+                    "input_scale tensors will be ignored.",
+                    self.activation_dtype_override,
+                    quant_method,
+                )
+        elif quant_method == "NVFP4":
             self.LinearMethodCls = ModelOptNvFp4LinearMethod
         elif quant_method == "W4A16_NVFP4":
             self.LinearMethodCls = ModelOptNvFp4W4A16LinearMethod
@@ -1071,6 +1102,7 @@ class ModelOptNvFp4Config(ModelOptQuantConfigBase):
         exclude_modules: list[str],
         original_config: dict[str, Any],
         group_size: int | None,
+        activation_dtype_override: str = "auto",
         **kwargs: Any,
     ) -> "ModelOptNvFp4Config":
         is_checkpoint_nvfp4_serialized = "NVFP4" in quant_method
@@ -1098,6 +1130,7 @@ class ModelOptNvFp4Config(ModelOptQuantConfigBase):
             kv_cache_quant_method,
             exclude_modules,
             group_size,
+            activation_dtype_override=activation_dtype_override,
         )
 
 
