@@ -313,6 +313,26 @@ def get_quant_config(
         ):
             pass  # fall through to file-based loading below
         else:
+            # Option 1: --modelopt-quant-algo-override rewrites the on-disk
+            # quant_algo string at load time. Equivalent to manually editing
+            # hf_quant_config.json. Mutate before calling from_config so the
+            # rest of the parsing/validation chain treats the ckpt as if
+            # quant_algo had been the override value all along.
+            override = getattr(
+                model_config, "modelopt_quant_algo_override", None
+            )
+            if override is not None:
+                if "quantization" in hf_quant_config and isinstance(
+                    hf_quant_config["quantization"], dict
+                ):
+                    hf_quant_config["quantization"]["quant_algo"] = override
+                else:
+                    hf_quant_config["quant_algo"] = override
+                logger.info(
+                    "modelopt_quant_algo_override=%s applied; downstream "
+                    "parsing will treat the ckpt as if quant_algo were %s.",
+                    override, override,
+                )
             return quant_cls.from_config(hf_quant_config)
 
     # if hf_quant_config is None, we will try to get config from

@@ -210,6 +210,15 @@ class ModelConfig:
     """Arguments for online quantization.
     Auto-created when `quantization` equals to one of the string values of
     the `OnlineQuantScheme` enum."""
+    modelopt_quant_algo_override: str | None = None
+    """If set, replace `hf_quant_config.json:quantization.quant_algo` (or
+    `config.json:quantization_config.quant_algo`) with this value before
+    `ModelOptQuantConfigBase.from_config` parses it. ModelOpt-specific.
+    Use to load a W4A4 NVFP4 ckpt as W4A16 without editing the on-disk
+    config (`--modelopt-quant-algo-override=W4A16_NVFP4`). The runtime
+    treats the ckpt as if `quant_algo` had been the override value all
+    along; the rest of dispatch (registry walk, parent's __init__
+    ladder) runs unchanged."""
     allow_deprecated_quantization: bool = False
     """Whether to allow deprecated quantization methods."""
     enforce_eager: bool = False
