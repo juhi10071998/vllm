@@ -1101,6 +1101,68 @@ class ModelOptNvFp4Config(ModelOptQuantConfigBase):
         )
 
 
+class ModelOptNvFp4W4A16Config(ModelOptNvFp4Config):
+    """User-driven override config: load a NVFP4 checkpoint (W4A4 or W4A16)
+    under the W4A16 LinearMethod regardless of the on-disk ``quant_algo``.
+
+    Use case: a user has a W4A4 NVFP4 checkpoint but wants to run it with
+    bf16/fp16 activations (better accuracy, or on hardware lacking native
+    fp4 activation support). The W4A4 ckpt's per-tensor *_proj.input_scale
+    tensors are silently ingested-and-discarded by the W4A16 method's
+    placeholder param.
+
+    Activated by ``--quantization=modelopt_fp4_w4a16``. Works with both
+    NVFP4 (W4A4) and W4A16_NVFP4 ckpts.
+    """
+
+    def get_name(self) -> "QuantizationMethods":
+        return "modelopt_fp4_w4a16"
+
+    @classmethod
+    def override_quantization_method(
+        cls, hf_quant_cfg, user_quant, hf_config=None
+    ) -> "QuantizationMethods | None":
+        # Only claim the ckpt when the user explicitly opted in.
+        # Without this guard, the parent's substring-match would still
+        # claim NVFP4 ckpts under "modelopt_fp4" via the registry walk.
+        # The explicit user_quant check makes failure modes loud rather
+        # than silent.
+        if user_quant != "modelopt_fp4_w4a16":
+            return None
+        algo = cls._extract_modelopt_quant_algo(hf_quant_cfg)
+        if algo is None or not ("NVFP4" in algo or "FP4" in algo):
+            raise ValueError(
+                "--quantization=modelopt_fp4_w4a16 requires a ModelOpt "
+                f"NVFP4 checkpoint; got quant_algo={algo!r}."
+            )
+        return "modelopt_fp4_w4a16"
+
+    def __init__(
+        self,
+        quant_method: str = "NVFP4",
+        is_checkpoint_nvfp4_serialized: bool = False,
+        kv_cache_quant_algo: str | None = None,
+        exclude_modules: list[str] | None = None,
+        group_size: int = 16,
+    ) -> None:
+        super().__init__(
+            quant_method=quant_method,
+            is_checkpoint_nvfp4_serialized=is_checkpoint_nvfp4_serialized,
+            kv_cache_quant_algo=kv_cache_quant_algo,
+            exclude_modules=exclude_modules,
+            group_size=group_size,
+        )
+        # Force the W4A16 LinearMethod regardless of on-disk quant_algo.
+        self.LinearMethodCls = ModelOptNvFp4W4A16LinearMethod
+        if quant_method != "W4A16_NVFP4":
+            logger.info(
+                "ModelOpt NVFP4 W4A16 override active: loading a %s "
+                "checkpoint via the W4A16 LinearMethod. Per-tensor "
+                "input_scale tensors will be ignored.",
+                quant_method,
+            )
+
+
 class ModelOptNvFp4LinearMethod(LinearMethodBase):
     """Linear method for Model Optimizer NVFP4.
     Supports loading NVFP4 checkpoints with the following structure:
