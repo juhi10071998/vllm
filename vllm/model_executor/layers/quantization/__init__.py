@@ -47,6 +47,18 @@ QuantizationMethods = Literal[
 ]
 QUANTIZATION_METHODS: list[str] = list(get_args(QuantizationMethods))
 
+# Experimental, flag-gated ModelOpt generic linear path. Registered as *custom*
+# methods (deliberately not in the QuantizationMethods Literal) so they are
+# auto-probed before the built-in modelopt configs and skip the override
+# consistency check in config/model.py. Each claims a checkpoint only when
+# VLLM_MODELOPT_GENERIC is set; otherwise yields to the built-in config.
+#   modelopt_generic_fp4   -> NVFP4 (W4A4) / W4A16_NVFP4  (yields to modelopt_fp4)
+#   modelopt_generic       -> FP8 / PcPt / PbWo           (yields to modelopt)
+#   modelopt_generic_mxfp8 -> MXFP8                       (yields to modelopt_mxfp8)
+QUANTIZATION_METHODS.append("modelopt_generic_fp4")
+QUANTIZATION_METHODS.append("modelopt_generic")
+QUANTIZATION_METHODS.append("modelopt_generic_mxfp8")
+
 DEPRECATED_QUANTIZATION_METHODS = [
     "fbgemm_fp8",
     "fp_quant",
@@ -133,6 +145,11 @@ def get_quantization_config(quantization: str) -> type[QuantizationConfig]:
         ModelOptMxFp8Config,
         ModelOptNvFp4Config,
     )
+    from .modelopt_experimental import (
+        ModelOptGenericFp8Config,
+        ModelOptGenericMxFp8Config,
+        ModelOptGenericNvFp4Config,
+    )
     from .moe_wna16 import MoeWNA16Config
     from .mxfp4 import GptOssMxfp4Config, Mxfp4Config
     from .online.base import OnlineQuantizationConfig
@@ -147,6 +164,9 @@ def get_quantization_config(quantization: str) -> type[QuantizationConfig]:
         "fp_quant": FPQuantConfig,
         "modelopt": ModelOptFp8Config,
         "modelopt_fp4": ModelOptNvFp4Config,
+        "modelopt_generic_fp4": ModelOptGenericNvFp4Config,
+        "modelopt_generic": ModelOptGenericFp8Config,
+        "modelopt_generic_mxfp8": ModelOptGenericMxFp8Config,
         "modelopt_mxfp8": ModelOptMxFp8Config,
         "modelopt_mixed": ModelOptMixedPrecisionConfig,
         "auto_gptq": AutoGPTQConfig,
